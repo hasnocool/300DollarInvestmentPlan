@@ -40,13 +40,17 @@ def max_drawdown(equity: pd.Series) -> float:
 
 def sharpe_like(equity: pd.Series, periods_per_year: int = 365, risk_free: float = 0.0) -> float:
     _require_equity(equity)
+    if periods_per_year <= 0:
+        raise ValueError("periods_per_year must be positive")
     returns = equity.pct_change().dropna()
     if len(returns) < 2:
         return 0.0
     rf_period = (1.0 + risk_free) ** (1.0 / periods_per_year) - 1.0
     excess = returns - rf_period
     std = excess.std(ddof=1)
-    return float(excess.mean() / std * math.sqrt(periods_per_year)) if std > 0 else 0.0
+    if not np.isfinite(std) or std < 1e-12:
+        return 0.0
+    return float(excess.mean() / std * math.sqrt(periods_per_year))
 
 
 def summarize(equity: pd.Series, trades: int, turnover: pd.Series) -> dict[str, float]:
