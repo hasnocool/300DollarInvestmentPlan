@@ -19,18 +19,14 @@ def periodic_rebalance(
     weights: dict[str, float],
     frequency_days: int = 30,
 ) -> pd.DataFrame:
-    """Return fixed target weights on scheduled rebalance dates.
-
-    Between rebalances, the backtester lets positions drift naturally. The
-    strategy function therefore marks rebalance dates rather than pretending
-    daily trading occurred.
-    """
+    """Return target weights on scheduled rebalance dates, forward-filled."""
     _validate_weights(close, weights)
     if frequency_days < 1:
         raise ValueError("frequency_days must be positive")
     result = pd.DataFrame(0.0, index=close.index, columns=close.columns)
     target = pd.Series(weights, dtype=float)
-    result.loc[::frequency_days, target.index] = target.values
+    for position in range(0, len(close), frequency_days):
+        result.iloc[position:, result.columns.get_indexer(target.index)] = target.values
     return result
 
 
@@ -39,11 +35,10 @@ def trend_following(
     risky_weights: dict[str, float],
     lookback_days: int = 100,
 ) -> pd.DataFrame:
-    """Hold risky assets only when each asset is above its SMA.
+    """Hold risky assets only when each asset is above its simple moving average.
 
-    Cash is represented by the unallocated portion of the portfolio. This
-    strategy emits target weights daily; the backtester only trades when the
-    desired allocation changes.
+    Unallocated capital remains cash. Signals are generated from close prices;
+    the backtester executes them on the following observation.
     """
     _validate_weights(close, risky_weights)
     if lookback_days < 2:
